@@ -22,3 +22,11 @@ pub async fn create_recipe_handler(
             .map_err(|e| reject::custom(e))?,
     ))
 }
+
+pub async fn fetch_recipes_handler(db_pool: DBPool) -> Result<impl Reply> {
+    Ok(json(
+        &db::fetch_recipes(&db_pool)
+            .await
+            .map_err(|e| reject::custom(e))?,
+    ))
+}

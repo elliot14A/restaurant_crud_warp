@@ -24,12 +24,17 @@ async fn main() {
     let health_route = warp::path!("health")
         .and(with_db(db_pool.clone()))
         .and_then(handler::health_handler);
-
-    let recipe_route = warp::path!("recipes")
+    let recipe = warp::path!("recipes");
+    let recipe_route = recipe
         .and(warp::post())
         .and(warp::body::json())
         .and(with_db(db_pool.clone()))
-        .and_then(handler::create_recipe_handler);
+        .and_then(handler::create_recipe_handler)
+        .or(recipe
+            .and(warp::get())
+            .and(with_db(db_pool.clone()))
+            .and_then(handler::fetch_recipes_handler)
+        );
 
     let routes = health_route
         .or(recipe_route)

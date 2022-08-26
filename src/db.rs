@@ -4,9 +4,9 @@ use mobc_postgres::{
     tokio_postgres::{self, Row},
     PgConnectionManager,
 };
-use std::{fs, collections::HashMap};
-use std::str::FromStr;
 use std::time::Duration;
+use std::fs;
+use std::{str::FromStr, vec};
 use tokio_postgres::{Config, Error, NoTls};
 
 type Result<T> = std::result::Result<T, error::Error>;
@@ -109,22 +109,46 @@ pub async fn fetch_recipes(db_pool: &DBPool) -> Result<Vec<Recipe>> {
         .query(query1.as_str(), &[])
         .await
         .map_err(DBQueryError)?;
-    let mut recipies: HashMap<&i32, Recipe> = HashMap::new();
+    let mut recipies: Vec<Recipe> = vec![];
     for i in rows {
         let row = con
             .query_one(query2.as_str(), &[&i.get::<usize, i32>(0)])
             .await
             .map_err(DBQueryError)?;
-        let idx: i32 = row.get(0);
-
-        match recipies.get(&idx) {
-            Some(_recipe) => todo!(),
-            None => todo!()
+        let row2 = con
+            .query_one(query3.as_str(), &[&i.get::<usize, i32>(1)])
+            .await
+            .map_err(DBQueryError)?;
+        let mut exist = false;
+        for j in &mut recipies {
+            if j.id == row.get::<usize, i32>(0) {
+                exist = true;
+                let ingredient = Ingredient {
+                    id: row2.get::<usize, i32>(0),
+                    name: row2.get::<usize, String>(1),
+                    quantity: i.get::<usize, i32>(2),
+                    quantity_unit: i.get::<usize, String>(3),
+                };
+                j.ingredients.push(ingredient)
+            }
+        }
+        if !exist {
+            let ingredient = Ingredient {
+                id: row2.get::<usize, i32>(0),
+                name: row2.get::<usize, String>(1),
+                quantity: i.get::<usize, i32>(2),
+                quantity_unit: i.get::<usize, String>(3),
+            };
+            let recipe = Recipe {
+                id: row.get::<usize, i32>(0),
+                name: row.get::<usize, String>(1),
+                description: row.get::<usize, String>(2),
+                dishsize: row.get::<usize, i32>(3),
+                ingredients: vec![ingredient],
+            };
+            recipies.push(recipe);
         }
     }
 
-    Ok(vec![])
+    Ok(recipies)
 }
-
-//1,1,quantity,a_u
-//1,2, quantity,a_u
