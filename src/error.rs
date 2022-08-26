@@ -1,6 +1,6 @@
 use mobc_postgres::tokio_postgres;
 use serde_derive::Serialize;
-use std::convert::Infallible;
+use std::{convert::Infallible, num::ParseIntError};
 use thiserror::Error;
 use warp::{http::StatusCode, Rejection, Reply};
 
@@ -14,6 +14,8 @@ pub enum Error {
     DBInitError(tokio_postgres::Error),
     #[error("error reading file: {0}")]
     ReadFileError(#[from] std::io::Error),
+    #[error("invalid query string")]
+    InvalidQueryError(ParseIntError)
 }
 
 #[derive(Serialize)]

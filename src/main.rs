@@ -32,6 +32,7 @@ async fn main() {
         .and_then(handler::create_recipe_handler)
         .or(recipe
             .and(warp::get())
+            .and(warp::query())
             .and(with_db(db_pool.clone()))
             .and_then(handler::fetch_recipes_handler)
         );

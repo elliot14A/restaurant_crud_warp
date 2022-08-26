@@ -1,7 +1,7 @@
 use crate::{data::*, error, error::Error::*, DBCon, DBPool};
 use mobc::Pool;
 use mobc_postgres::{
-    tokio_postgres::{self, Row},
+    tokio_postgres,
     PgConnectionManager,
 };
 use std::time::Duration;
@@ -100,15 +100,27 @@ pub async fn create_recipe(db_pool: &DBPool, body: CreateRecipeRequest) -> Resul
         ingredients,
     })
 }
-pub async fn fetch_recipes(db_pool: &DBPool) -> Result<Vec<Recipe>> {
+
+pub async fn fetch_recipes_all(db_pool: &DBPool, query: Option<String>) -> Result<Vec<Recipe>> {
     let con = get_db_con(db_pool).await?;
-    let query1 = format!("SELECT * FROM {}", TABLE3);
+    let query1; 
+    let rows;
+    match query {
+        None => {
+            query1 = format!("SELECT * FROM {}", TABLE3); 
+            rows = con
+            .query(query1.as_str(), &[])
+            .await
+            .map_err(DBQueryError)?;
+        },
+        Some(q) => {
+            let recipe_id: i32 = i32::from_str(&q.as_str()).map_err(InvalidQueryError)?;
+            query1 =format!("SELECT * FROM {} WHERE rec_id=$1", TABLE3);
+            rows = con.query(query1.as_str(), &[&recipe_id]).await.map_err(DBQueryError)?;
+        },
+    }
     let query2: String = format!("SELECT * FROM {} WHERE ID=$1", TABLE1);
     let query3: String = format!("SELECT * FROM {} WHERE ID=$1", TABLE2);
-    let rows: Vec<Row> = con
-        .query(query1.as_str(), &[])
-        .await
-        .map_err(DBQueryError)?;
     let mut recipies: Vec<Recipe> = vec![];
     for i in rows {
         let row = con
@@ -152,3 +164,5 @@ pub async fn fetch_recipes(db_pool: &DBPool) -> Result<Vec<Recipe>> {
 
     Ok(recipies)
 }
+
+

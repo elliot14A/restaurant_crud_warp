@@ -1,5 +1,6 @@
 use crate::{data::CreateRecipeRequest, db, error::Error::*, DBPool, Result};
 
+use serde::Deserialize;
 use warp::{http::StatusCode, reject, reply::json, Reply};
 
 pub async fn health_handler(db_pool: DBPool) -> Result<impl Reply> {
@@ -23,10 +24,15 @@ pub async fn create_recipe_handler(
     ))
 }
 
-pub async fn fetch_recipes_handler(db_pool: DBPool) -> Result<impl Reply> {
-    Ok(json(
-        &db::fetch_recipes(&db_pool)
-            .await
-            .map_err(|e| reject::custom(e))?,
-    ))
+#[derive(Deserialize)]
+pub struct SearchQuery {
+    search : Option<String>
+}
+
+pub async fn fetch_recipes_handler(query: SearchQuery,db_pool: DBPool, ) -> Result<impl Reply> {
+     Ok(json(
+            &db::fetch_recipes_all(&db_pool, query.search)
+                .await
+                .map_err(|e| reject::custom(e))?))
+     
 }
