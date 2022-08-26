@@ -1,18 +1,44 @@
+use mobc::{Connection, Pool};
+use mobc_postgres::{tokio_postgres, PgConnectionManager};
+use std::convert::Infallible;
+use tokio_postgres::NoTls;
+use warp::{Filter, Rejection};
+
 mod data;
 mod db;
+mod error;
 mod handler;
-mod types;
-mod utils;
 
-use warp::{hyper::StatusCode, Filter};
+type Result<T> = std::result::Result<T, Rejection>;
+type DBCon = Connection<PgConnectionManager<NoTls>>;
+type DBPool = Pool<PgConnectionManager<NoTls>>;
 
 #[tokio::main]
 async fn main() {
-    let db_pool = db::create_pool().expect("dbpool can be create");
+    let db_pool = db::create_pool().expect("database pool can be created");
+
     db::init_db(&db_pool)
         .await
         .expect("database can be initialized");
-    let health_route = warp::path!("health").map(|| StatusCode::OK);
-    let routes = health_route.with(warp::cors().allow_any_origin());
-    warp::serve(routes).run(([127, 0, 0, 1], 8080)).await;
+
+    let health_route = warp::path!("health")
+        .and(with_db(db_pool.clone()))
+        .and_then(handler::health_handler);
+
+    let recipe_route = warp::path!("recipes")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and(with_db(db_pool.clone()))
+        .and_then(handler::create_recipe_handler);
+
+    let routes = health_route
+        .or(recipe_route)
+        .with(warp::cors().allow_any_origin())
+        .recover(error::handle_rejection);
+
+    warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
+}
+
+fn with_db(db_pool: DBPool) -> impl Filter<Extract = (DBPool,), Error = Infallible> + Clone {
+    warp::any().map(move || db_pool.clone())
 }
